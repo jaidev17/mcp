@@ -14,6 +14,8 @@
 
 MCP_DOCKER_IMAGE = "arm-mcp:latest"
 
+DEFAULT_PLATFORM = "linux/arm64"
+
 INIT_REQUEST = {
             "jsonrpc": "2.0",
             "id": 1,

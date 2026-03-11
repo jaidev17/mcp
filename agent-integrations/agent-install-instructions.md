@@ -11,16 +11,18 @@ docker pull armlimited/arm-mcp:latest
 Use the following command and args in your MCP configuration (adjusting the format as required by your agent):
 
 ```json
-"command": "docker",
-"args": [
-  "run",
-  "--rm",
-  "-i",
-  "--pull=always",
-  "-v", "/path/to/your/workspace:/workspace",
-  "--name", "arm-mcp",
-  "armlimited/arm-mcp"
-]
+{
+  "command": "docker",
+  "args": [
+    "run",
+    "--rm",
+    "-i",
+    "--pull=always",
+    "-v", "/path/to/your/workspace:/workspace",
+    "--name", "arm-mcp",
+    "armlimited/arm-mcp"
+  ]
+}
 ```
 
 For TOML-based configurations:
@@ -33,8 +35,11 @@ args = [
     "run",
     "--rm",
     "-i",
+    "--pull=always",
     "-v",
     "/path/to/your/workspace:/workspace",
+    "--name",
+    "arm-mcp",
     "armlimited/arm-mcp",
 ]
 ```

@@ -1,5 +1,5 @@
 <!--
-  Place this file .cursor/commands/arm-migration.md in your workspace
+  Place this file at .cursor/commands/arm-migration.md in your workspace
   Invoke in chat: /arm-migration
 -->
 

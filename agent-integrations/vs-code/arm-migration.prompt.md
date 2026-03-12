@@ -1,4 +1,4 @@
-<!-- Place this prompt file at .github/prompts/arm-migration.prompt.md in the repo root to enable it. 
+<!-- Place this prompt file at .github/prompts/arm-migration.prompt.md in the repo root to enable it.
      Invoke using /arm-migration in the chat.
 -->
 ---

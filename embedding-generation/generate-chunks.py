@@ -96,8 +96,89 @@ chunk_index = 1
 # Global var to prevent duplication entries from cross platform learning paths
 cross_platform_lps_dont_duplicate = []
 
+# Global tracking for vector-db-sources.csv
+# Set of URLs already in the CSV (for deduplication)
+known_source_urls = set()
+# List of all source entries (including existing and new)
+# Each entry is a dict: {site_name, license_type, display_name, url, keywords}
+all_sources = []
+
 # Increase the file size limit, which defaults to '131,072'
 csv.field_size_limit(10**9) #1,000,000,000 (1 billion), smaller than 64-bit space but avoids 'python overflowerror'
+
+
+def load_existing_sources(csv_file):
+    """
+    Load existing sources from vector-db-sources.csv into memory.
+    Populates known_source_urls set and all_sources list.
+    """
+    global known_source_urls, all_sources
+    known_source_urls = set()
+    all_sources = []
+    
+    if not os.path.exists(csv_file):
+        print(f"Sources file '{csv_file}' does not exist. Starting fresh.")
+        return
+    
+    with open(csv_file, 'r', newline='', encoding='utf-8') as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            url = row.get('URL', '').strip()
+            if url:
+                known_source_urls.add(url)
+                all_sources.append({
+                    'site_name': row.get('Site Name', ''),
+                    'license_type': row.get('License Type', ''),
+                    'display_name': row.get('Display Name', ''),
+                    'url': url,
+                    'keywords': row.get('Keywords', '')
+                })
+    
+    print(f"Loaded {len(all_sources)} existing sources from '{csv_file}'")
+
+
+def register_source(site_name, license_type, display_name, url, keywords):
+    """
+    Register a new source URL. If the URL already exists, skip it.
+    Returns True if the source was added, False if it was a duplicate.
+    """
+    global known_source_urls, all_sources
+    
+    # Normalize URL for comparison
+    url = url.strip()
+    
+    if url in known_source_urls:
+        return False
+    
+    known_source_urls.add(url)
+    all_sources.append({
+        'site_name': site_name,
+        'license_type': license_type,
+        'display_name': display_name,
+        'url': url,
+        'keywords': keywords if isinstance(keywords, str) else '; '.join(keywords)
+    })
+    print(f"[NEW SOURCE] {display_name}: {url}")
+    return True
+
+
+def save_sources_csv(csv_file):
+    """
+    Write all sources (existing + new) to vector-db-sources.csv.
+    """
+    with open(csv_file, 'w', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Site Name', 'License Type', 'Display Name', 'URL', 'Keywords'])
+        for source in all_sources:
+            writer.writerow([
+                source['site_name'],
+                source['license_type'],
+                source['display_name'],
+                source['url'],
+                source['keywords']
+            ])
+    
+    print(f"Saved {len(all_sources)} sources to '{csv_file}'")
 
 class Chunk:
     def __init__(self, title, url, uuid, keywords, content):
@@ -180,9 +261,20 @@ def createEcosystemDashboardChunks():
                 keywords.append(c.replace('tag-license-','').replace('tag-category-',''))
 
 
+        package_url = f"{url}?package={package_name_urlized}"
+        
+        # Register this ecosystem dashboard entry as a source
+        register_source(
+            site_name='Ecosystem Dashboard',
+            license_type='Arm Proprietary',
+            display_name=f'Ecosystem Dashboard - {package_name}',
+            url=package_url,
+            keywords=keywords
+        )
+        
         chunk = Chunk(
             title        = f"Ecosystem Dashboard - {package_name}",
-            url          = f"{url}?package={package_name_urlized}",
+            url          = package_url,
             uuid         = str(uuid.uuid4()),
             keywords     = keywords,
             content      = text_snippet
@@ -352,6 +444,27 @@ def processLearningPath(url,type):
 
         response = http_session.get(url, timeout=60)
         soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Get learning path title and keywords once for registration
+        lp_title_elem = soup.find(id='learning-path-title')
+        if lp_title_elem:
+            lp_title = lp_title_elem.get_text()
+            ads_tags = soup.findAll('ads-tag')
+            lp_keywords = []
+            for tag in ads_tags:
+                keyword = tag.get_text().strip()
+                if keyword not in lp_keywords:
+                    lp_keywords.append(keyword)
+            
+            # Register this learning path as a source
+            register_source(
+                site_name='Learning Paths',
+                license_type='CC4.0',
+                display_name=f'Learning Path - {lp_title}',
+                url=url,
+                keywords=lp_keywords
+            )
+        
         for link in soup.find_all(class_='inner-learning-path-navbar-element'):
             #Ignore mobile links
             if 'content-individual-a-mobile' not in link.get('class', []): 
@@ -392,11 +505,24 @@ def processLearningPath(url,type):
             ig_soup = BeautifulSoup(ig_response.text, 'html.parser')
             
             # obtain title of Install Guide
-            title = 'Install Guide - '+ ig_soup.find(id='install-guide-title').get_text()
+            ig_title_elem = ig_soup.find(id='install-guide-title')
+            if not ig_title_elem:
+                continue
+            ig_title = ig_title_elem.get_text()
+            title = 'Install Guide - '+ ig_title
             
 
             # Obtain keywords of learning path
-            keywords = [ig_soup.find(id='install-guide-title').get_text(), 'install','build', 'download']
+            keywords = [ig_title, 'install','build', 'download']
+            
+            # Register this install guide as a source
+            register_source(
+                site_name='Install Guides',
+                license_type='CC4.0',
+                display_name=title,
+                url=ig_url,
+                keywords=keywords
+            )
             
             # Processing to check for multi-install
             multi_install_guides = ig_soup.find_all(class_='multi-install-card')
@@ -710,6 +836,10 @@ def main():
     parser = argparse.ArgumentParser(description="Turn a Learning Path URL into suburls in GitHub")
     parser.add_argument("csv_file", help="Path to the CSV file that lists all Learning Paths to chunk.")
     args = parser.parse_args()
+    sources_file = args.csv_file
+
+    # Load existing sources from vector-db-sources.csv (for deduplication)
+    load_existing_sources(sources_file)
 
     # 0) Initialize files
     os.makedirs(yaml_dir, exist_ok=True) # create if doesn't exist
@@ -729,9 +859,9 @@ def main():
     #createIntrinsicsDatabaseChunks()
 
     # 1) Get URLs and details from CSV
-    csv_dict, csv_length = readInCSV(args.csv_file)
+    csv_dict, csv_length = readInCSV(sources_file)
 
-    print(f'Starting to loop over CSV file {args.csv_file} ......')
+    print(f'Starting to loop over CSV file {sources_file} ......')
     for i in range(csv_length):
         url = csv_dict['urls'][i]
         source_name = csv_dict['source_names'][i]
@@ -759,6 +889,10 @@ def main():
                 chunk = createChunk(text_snippet, WEBSITE_url, keywords, source_name)
                 chunkSaveAndTrack(url,chunk) 
 
+    # Save updated sources CSV with all discovered sources
+    save_sources_csv(sources_file)
+    print(f"\n=== Source tracking complete ===")
+    print(f"Total sources in {sources_file}: {len(all_sources)}")
 
 
 if __name__ == "__main__":

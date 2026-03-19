@@ -33,7 +33,7 @@ WORKDIR /embedding-data
 # Copy Python scripts and dependencies
 COPY generate-chunks.py .
 COPY local_vectorstore_creation.py .
-COPY urls-to-chunk.csv .
+COPY vector-db-sources.csv .
 COPY requirements.txt .
 
 # Copy intrinsic chunks data from the cached base image
@@ -43,7 +43,7 @@ COPY --from=intrinsic-chunks /embedding-data/intrinsic_chunks ./intrinsic_chunks
 RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Generate vector database
-RUN python3 generate-chunks.py urls-to-chunk.csv && \
+RUN python3 generate-chunks.py vector-db-sources.csv && \
     python3 local_vectorstore_creation.py && \
     rm -f embeddings_*.txt
 

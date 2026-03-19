@@ -417,6 +417,17 @@ class TestReadInCSV:
         assert csv_dict['urls'] == ['https://example.com/runners']
         assert csv_dict['focus'] == ['github; actions, runners']
 
+    def test_read_csv_file_not_exists(self, gc, tmp_path):
+        """Test that missing file returns empty results (not FileNotFoundError)."""
+        csv_file = tmp_path / "nonexistent.csv"
+        
+        csv_dict, length = gc.readInCSV(str(csv_file))
+        
+        assert length == 0
+        assert csv_dict['urls'] == []
+        assert csv_dict['source_names'] == []
+        assert csv_dict['focus'] == []
+
 
 class TestCreateChunk:
     """Tests for createChunk function."""

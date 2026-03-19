@@ -576,12 +576,16 @@ def readInCSV(csv_file):
     """Read sources CSV file and return dict of lists for processing.
     
     Uses csv.DictReader to properly handle quoted fields containing commas.
+    Returns empty results if the file doesn't exist.
     """
     csv_dict = {
         'urls': [],
         'focus': [],
         'source_names': []
     }
+    
+    if not os.path.exists(csv_file):
+        return csv_dict, 0
     
     with open(csv_file, 'r', newline='', encoding='utf-8') as file:
         reader = csv.DictReader(file)

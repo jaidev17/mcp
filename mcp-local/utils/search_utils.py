@@ -211,7 +211,7 @@ def rerank_candidates(query: str, candidates: List[Dict[str, Any]]) -> List[Dict
             elif "brief" in doc_type:
                 doc_type_bonus -= 0.05
         if prefers_tutorial:
-            if doc_type in {"tutorial", "install guide", "learning path"}:
+            if doc_type in {"tutorial", "install guide", "learning path", "learning paths"}:
                 doc_type_bonus += 0.10
         rerank_score = (
             candidate.get("rrf_score", 0.0)

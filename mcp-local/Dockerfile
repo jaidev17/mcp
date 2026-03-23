@@ -15,21 +15,16 @@
 # syntax=docker/dockerfile:1.7
 
 ARG EMBEDDINGS_IMAGE=armlimited/arm-mcp:embeddings-latest
-ARG EMBEDDING_MODEL=all-MiniLM-L6-v2
 # EMBEDDINGS_IMAGE must point to an embeddings image tag (e.g., armlimited/arm-mcp:embeddings-YYYY-MM-DD).
 FROM --platform=linux/arm64 ${EMBEDDINGS_IMAGE} AS embeddings
 
 # Stage 1: Build main application with prebuilt vector database
 FROM ubuntu:24.04 AS builder
-ARG EMBEDDING_MODEL=all-MiniLM-L6-v2
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    WORKSPACE_DIR=/workspace \
-    HF_HOME=/app/.cache/huggingface \
-    SENTENCE_TRANSFORMERS_HOME=/app/.cache/sentence_transformers \
-    SENTENCE_TRANSFORMER_MODEL=${EMBEDDING_MODEL}
+    WORKSPACE_DIR=/workspace
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-venv python3-pip \
@@ -70,15 +65,13 @@ RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
         pip install --no-cache-dir -r requirements.txt; \
     fi
 
-RUN mkdir -p "$HF_HOME" "$SENTENCE_TRANSFORMERS_HOME" && \
-    python -c "from sentence_transformers import SentenceTransformer; import os; SentenceTransformer(os.environ['SENTENCE_TRANSFORMER_MODEL'], cache_folder=os.environ['SENTENCE_TRANSFORMERS_HOME'])"
-
 # Copy generated vector database files
 RUN mkdir -p ./data
 COPY --from=embeddings /embedding-data/metadata.json ./data/metadata.json
 COPY --from=embeddings /embedding-data/usearch_index.bin ./data/usearch_index.bin
 
 COPY mcp-local/utils/ ./utils/
+COPY mcp-local/sql ./sql/
 COPY mcp-local/server.py .
 
 FROM ubuntu:24.04 AS runtime
@@ -90,8 +83,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     WORKSPACE_DIR=/workspace \
-    HF_HOME=/app/.cache/huggingface \
-    SENTENCE_TRANSFORMERS_HOME=/app/.cache/sentence_transformers \
     VIRTUAL_ENV=/app/.venv \
     PATH=/app/.venv/bin:$PATH
 
@@ -100,6 +91,35 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates libmagic1 git llvm \
     libgpgme11 libassuan0 libdevmapper1.02.1 && \
     rm -rf /var/lib/apt/lists/*
+
+# --- Install apx into a fixed location, keep full directory structure ---
+ENV APX_HOME=/opt/ArmPerformix-cli-1.0.0-linux-arm64 \
+    APX_BIN=/opt/ArmPerformix-cli-1.0.0-linux-arm64/apx
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl tar; \
+    rm -rf /var/lib/apt/lists/*; \
+    \
+    mkdir -p "${APX_HOME}"; \
+    tmpdir="$(mktemp -d)"; \
+    cd "$tmpdir"; \
+    \
+    curl -fsSL -L -o ArmPerformix-cli-1.0.0-linux-arm64.tar.gz \
+      #"https://artifacts.tools.arm.com/its-arm-total-performance-cli/latest/linux/arm64/atperf.tar.gz"; \
+      "https://artifacts.tools.arm.com/arm-performix/cli/1.0.0/ArmPerformix-cli-1.0.0-linux-arm64.tar.gz"; \
+      \
+    # Extract directly into $APX_HOME (preserves data/lib/etc alongside apx)
+    tar -xzf ArmPerformix-cli-1.0.0-linux-arm64.tar.gz -C "${APX_HOME}"; \
+    \
+    # Ensure executable bit
+    chmod +x "${APX_BIN}"; \
+    \
+    # Optional: convenience symlink
+    ln -sf "${APX_BIN}" /usr/local/bin/apx; \
+    \
+    cd /; \
+    rm -rf "$tmpdir"
 
 COPY --from=builder /opt/arm-migration-tools /opt/arm-migration-tools
 COPY --from=builder /usr/local/bin/ /usr/local/bin/

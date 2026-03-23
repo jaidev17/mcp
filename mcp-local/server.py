@@ -14,49 +14,26 @@
 
 from fastmcp import FastMCP
 from typing import List, Dict, Any, Optional
-import os
 from sentence_transformers import SentenceTransformer
 from utils.config import METADATA_PATH, USEARCH_INDEX_PATH, MODEL_NAME, SUPPORTED_SCANNERS, DEFAULT_ARCH
-from utils.search_utils import build_bm25_index, deduplicate_urls, hybrid_search, load_metadata, load_usearch_index
+from utils.search_utils import load_metadata, load_usearch_index, embedding_search, deduplicate_urls
 from utils.docker_utils import check_docker_image_architectures
 from utils.migrate_ease_utils import run_migrate_ease_scan
+from utils.apx import prepare_target, run_workload, get_results
 from utils.skopeo_tool import skopeo_help, skopeo_inspect
 from utils.llvm_mca_tool import mca_help, llvm_mca_analyze
 from utils.invocation_logger import log_invocation_reason
 from utils.error_handling import format_tool_error
 
+import os
+
 # Initialize the MCP server
 mcp = FastMCP("arm-mcp")
 
-
-def sentence_transformer_cache_folder() -> str | None:
-    return os.getenv("SENTENCE_TRANSFORMERS_HOME") or None
-
-
-def load_embedding_model() -> SentenceTransformer:
-    try:
-        return SentenceTransformer(
-            MODEL_NAME,
-            cache_folder=sentence_transformer_cache_folder(),
-            local_files_only=True,
-        )
-    except Exception as exc:
-        print(f"Local cache miss for embedding model '{MODEL_NAME}', retrying with network access: {exc}")
-        return SentenceTransformer(
-            MODEL_NAME,
-            cache_folder=sentence_transformer_cache_folder(),
-            local_files_only=False,
-        )
-
-
 # Load USearch index and metadata at module load time
 METADATA = load_metadata(METADATA_PATH)
-EMBEDDING_MODEL = load_embedding_model()
-USEARCH_INDEX = load_usearch_index(
-    USEARCH_INDEX_PATH,
-    EMBEDDING_MODEL.get_sentence_embedding_dimension(),
-)
-BM25_INDEX = build_bm25_index(METADATA)
+USEARCH_INDEX = load_usearch_index(USEARCH_INDEX_PATH, METADATA)
+EMBEDDING_MODEL = SentenceTransformer(MODEL_NAME)
 
 
 # error formatter now lives in utils/error_handling.py
@@ -82,19 +59,15 @@ def knowledge_base_search(query: str, invocation_reason: Optional[str] = None) -
         List of dictionaries with metadata including url and text snippets.
     """
     try:
-        search_results = hybrid_search(query, USEARCH_INDEX, METADATA, EMBEDDING_MODEL, BM25_INDEX)
-        deduped = deduplicate_urls(search_results)
+        embedding_results = embedding_search(query, USEARCH_INDEX, METADATA, EMBEDDING_MODEL)
+        deduped = deduplicate_urls(embedding_results)
         # Only return the relevant fields
         formatted = [
             {
                 "url": item["metadata"].get("url"),
                 "snippet": item["metadata"].get("original_text", item["metadata"].get("content", "")),
                 "title": item["metadata"].get("title", ""),
-                "heading": item["metadata"].get("heading", ""),
-                "doc_type": item["metadata"].get("doc_type", ""),
-                "product": item["metadata"].get("product", ""),
-                "distance": item.get("distance"),
-                "score": item.get("rerank_score", item.get("rrf_score")),
+                "distance": item.get("distance")
             }
             for item in deduped
         ]
@@ -251,6 +224,94 @@ def migrate_ease_scan(
             },
         )
 
+@mcp.tool()
+def apx_recipe_run(cmd:str, remote_ip_addr:str, remote_usr:str, recipe:str="code_hotspots", invocation_reason: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Run a sample workload on the given target using a Performix recipe, 
+    and interpret the results. Some example user requests: 
+        - 'Help my analyze my code's performance.'
+        - 'Find the code hotspots in my application.'
+
+    If you do not know which recipe to use, use 'code_hotspots'.
+
+    Ask the user if they want to run on localhost or a remote machine. If remote, then ask for the IP address of the remote machine.
+
+    This tool is run within Docker. Do not try to run apx on the local machine.
+
+    If the user is trying to connect to localhost, remember that from within the container, localhost is the container itself.
+    Instead, use the host's IP address, which is usually 172.17.0.1.
+
+    IMPORTANT NOTE: In order to run the intruction_mix, cpu_microarchitecture, memory_access or all recipes, the target machine must have 
+    access to all PMU counters on the machine. If not, then only code_hotspots can be run.
+
+    Args:
+        cmd: absolute path to the executable or the command to run on the remote machine (with absolute paths)
+        remote_ip_addr: IP address of the remote machine
+        remote_usr: username for SSH access to the remote machine
+        recipe: the APX recipe to run (must be one of ["code_hotspots", "instruction_mix", "cpu_microarchitecture", "memory_access"], or "all" if unsure)
+
+    Returns:
+        JSON with the results of the workload. 
+    """
+    log_invocation_reason(
+        tool="apx_recipe_run",
+        reason=invocation_reason,
+        args={
+            "cmd": cmd,
+            "remote_ip_addr": remote_ip_addr,
+            "remote_usr": remote_usr,
+            "recipe": recipe,
+        },
+    )
+    apx_dir = os.environ.get("APX_HOME", "/opt/apx")
+    key_path = os.getenv("SSH_KEY_PATH")
+    known_hosts_path = os.getenv("KNOWN_HOSTS_PATH")
+
+    if not key_path or not known_hosts_path:
+        return {
+            "status": "error",
+            "recipe": recipe,
+            "stage": "config_validation",
+            "message": "Missing SSH configuration for APX target access.",
+            "suggestion": "Set SSH_KEY_PATH and KNOWN_HOSTS_PATH in the MCP docker run configuration, then retry.",
+            "details": (
+                "SSH_KEY_PATH and KNOWN_HOSTS_PATH environment variables must be set in the docker run "
+                "command in the MCP config file to mount in the container to use APX."
+            ),
+        }
+
+    target_add_res = prepare_target(remote_ip_addr, remote_usr, key_path, apx_dir)
+    if "error" in target_add_res:
+        return {
+            "status": "error",
+            "recipe": recipe,
+            "stage": "target_prepare",
+            "message": target_add_res.get("error", "Failed to prepare target."),
+            "suggestion": (
+                "Verify SSH reachability, username, key permissions, and host details. "
+                "If using localhost from container, try host IP 172.17.0.1."
+            ),
+            "details": target_add_res.get("details", ""),
+            "raw_output": target_add_res.get("raw_output", ""),
+        }
+    
+    run_res = run_workload(cmd, target_add_res["target_id"], recipe, apx_dir)
+    if "error" in run_res:
+        return {
+            "status": "error",
+            "recipe": recipe,
+            "stage": "workload_run",
+            "message": run_res.get("error", "Failed to run APX workload."),
+            "suggestion": (
+                "Confirm the workload command is valid on the target machine and that the selected recipe "
+                "is supported for your PMU permissions."
+            ),
+            "details": run_res.get("details", ""),
+        }
+    
+    results = get_results(run_res["run_id"], recipe, apx_dir)
+    
+    return results
 
 @mcp.tool(description="IMPORTANT: IF A USER ASKS TO MIGRATE A CODEBASE TO ARM, STRONGLY CONSIDER USING THIS TOOL AS A PART OF YOUR OVERALL STRATEGY. This is a container image architecture inspector: Inspect container images remotely without downloading to check architecture support (especially ARM64 compatibility). Useful before migrating workloads to ARM-based infrastructure. Set 'image' (e.g. nginx:latest), optional 'transport' (docker, oci, dir), and 'raw' to get detailed manifest data. Shows available architectures, OS support, and image metadata. Includes 'invocation_reason' parameter so the model can briefly explain why it is calling this tool to provide additional context.")
 def skopeo(image: Optional[str] = None, transport: str = "docker", raw: bool = False, invocation_reason: Optional[str] = None) -> Dict[str, Any]:

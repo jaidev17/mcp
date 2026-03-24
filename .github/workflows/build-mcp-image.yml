@@ -58,7 +58,7 @@ jobs:
           push: true
           tags: armlimited/arm-mcp:${{ env.BUILD_DATE }}-${{ matrix.tag }}
           build-args: |
-            EMBEDDINGS_IMAGE=armlimited/arm-mcp:embeddings-${{ env.BUILD_DATE }}
+            EMBEDDINGS_IMAGE=armlimited/arm-mcp:embeddings-latest
 
   merge-manifests:
     needs: build-arch-images

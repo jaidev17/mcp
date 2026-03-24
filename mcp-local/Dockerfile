@@ -86,6 +86,7 @@ FROM ubuntu:24.04 AS runtime
 
 # MCP Registry verification label
 LABEL io.modelcontextprotocol.server.name="io.github.arm/arm-mcp"
+ARG TARGETPLATFORM
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
@@ -93,6 +94,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     WORKSPACE_DIR=/workspace \
     HF_HOME=/app/.cache/huggingface \
     SENTENCE_TRANSFORMERS_HOME=/app/.cache/sentence_transformers \
+    APX_HOME=/opt/ArmPerformix-cli-current \
+    APX_BIN=/opt/ArmPerformix-cli-current/apx \
     VIRTUAL_ENV=/app/.venv \
     PATH=/app/.venv/bin:$PATH
 
@@ -103,31 +106,33 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # --- Install apx into a fixed location, keep full directory structure ---
-ENV APX_HOME=/opt/ArmPerformix-cli-1.0.0-linux-arm64 \
-    APX_BIN=/opt/ArmPerformix-cli-1.0.0-linux-arm64/apx
-
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends ca-certificates curl tar; \
     rm -rf /var/lib/apt/lists/*; \
     \
-    mkdir -p "${APX_HOME}"; \
+    if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+        echo "WARNING: Using x86_64 Performix CLI on amd64 target. Results may vary from Arm64."; \
+        APX_ARCH="x64"; \
+        APX_TARBALL="ArmPerformix-cli-1.0.0-linux-x64.tar.gz"; \
+    else \
+        APX_ARCH="arm64"; \
+        APX_TARBALL="ArmPerformix-cli-1.0.0-linux-arm64.tar.gz"; \
+    fi; \
+    \
+    APX_INSTALL_HOME="/opt/ArmPerformix-cli-1.0.0-linux-${APX_ARCH}"; \
+    APX_INSTALL_BIN="${APX_INSTALL_HOME}/apx"; \
+    APX_URL="https://artifacts.tools.arm.com/arm-performix/cli/1.0.0/${APX_TARBALL}"; \
+    \
+    mkdir -p "${APX_INSTALL_HOME}"; \
     tmpdir="$(mktemp -d)"; \
     cd "$tmpdir"; \
-    \
-    curl -fsSL -L -o ArmPerformix-cli-1.0.0-linux-arm64.tar.gz \
-      #"https://artifacts.tools.arm.com/its-arm-total-performance-cli/latest/linux/arm64/atperf.tar.gz"; \
-      "https://artifacts.tools.arm.com/arm-performix/cli/1.0.0/ArmPerformix-cli-1.0.0-linux-arm64.tar.gz"; \
-      \
-    # Extract directly into $APX_HOME (preserves data/lib/etc alongside apx)
-    tar -xzf ArmPerformix-cli-1.0.0-linux-arm64.tar.gz -C "${APX_HOME}"; \
-    \
-    # Ensure executable bit
-    chmod +x "${APX_BIN}"; \
-    \
-    # Optional: convenience symlink
+    curl -fsSL -L -o "${APX_TARBALL}" "${APX_URL}"; \
+    # Extract directly into arch-specific path (preserves data/lib/etc alongside apx)
+    tar -xzf "${APX_TARBALL}" -C "${APX_INSTALL_HOME}"; \
+    chmod +x "${APX_INSTALL_BIN}"; \
+    ln -sfn "${APX_INSTALL_HOME}" "${APX_HOME}"; \
     ln -sf "${APX_BIN}" /usr/local/bin/apx; \
-    \
     cd /; \
     rm -rf "$tmpdir"
 

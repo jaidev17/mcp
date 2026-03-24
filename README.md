@@ -58,10 +58,10 @@ Add to `.mcp.json` in your project:
         "--rm",
         "-i",
         "-v", "/path/to/your/workspace:/workspace",
-        "-e", "SSH_KEY_PATH=/root/.ssh/id_rsa",
-        "-e", "KNOWN_HOSTS_PATH=/root/.ssh/known_hosts",
-        "-v", "/path/to/your/ssh/private_key:/root/.ssh/id_rsa:ro",
-        "-v", "/path/to/your/ssh/known_hosts:/root/.ssh/known_hosts:ro",
+        "-e", "SSH_KEY_PATH=/run/keys/ssh-key.pem",
+        "-e", "KNOWN_HOSTS_PATH=/run/keys/known_hosts",
+        "-v", "/path/to/your/ssh/private_key:/run/keys/ssh-key.pem:ro",
+        "-v", "/path/to/your/ssh/known_hosts:/run/keys/known_hosts:ro",
         "armlimited/arm-mcp"
       ]
     }
@@ -84,10 +84,10 @@ Add to `.vscode/mcp.json` in your project, or globally at `~/Library/Application
         "--rm",
         "-i",
         "-v", "/path/to/your/workspace:/workspace",
-        "-e", "SSH_KEY_PATH=/root/.ssh/id_rsa",
-        "-e", "KNOWN_HOSTS_PATH=/root/.ssh/known_hosts",
-        "-v", "/path/to/your/ssh/private_key:/root/.ssh/id_rsa:ro",
-        "-v", "/path/to/your/ssh/known_hosts:/root/.ssh/known_hosts:ro",
+        "-e", "SSH_KEY_PATH=/run/keys/ssh-key.pem",
+        "-e", "KNOWN_HOSTS_PATH=/run/keys/known_hosts",
+        "-v", "/path/to/your/ssh/private_key:/run/keys/ssh-key.pem:ro",
+        "-v", "/path/to/your/ssh/known_hosts:/run/keys/known_hosts:ro",
         "armlimited/arm-mcp"
       ]
     }
@@ -113,10 +113,10 @@ Add to `~/.kiro/settings/mcp.json`:
         "--rm",
         "-i",
         "-v", "/path/to/your/workspace:/workspace",
-        "-e", "SSH_KEY_PATH=/root/.ssh/id_rsa",
-        "-e", "KNOWN_HOSTS_PATH=/root/.ssh/known_hosts",
-        "-v", "/path/to/your/ssh/private_key:/root/.ssh/id_rsa:ro",
-        "-v", "/path/to/your/ssh/known_hosts:/root/.ssh/known_hosts:ro",
+        "-e", "SSH_KEY_PATH=/run/keys/ssh-key.pem",
+        "-e", "KNOWN_HOSTS_PATH=/run/keys/known_hosts",
+        "-v", "/path/to/your/ssh/private_key:/run/keys/ssh-key.pem:ro",
+        "-v", "/path/to/your/ssh/known_hosts:/run/keys/known_hosts:ro",
         "--name", "arm-mcp",
         "armlimited/arm-mcp"
       ],
@@ -142,10 +142,10 @@ Add to `.gemini/settings.json` in your project root:
         "--rm",
         "-i",
         "-v", "/path/to/your/workspace:/workspace",
-        "-e", "SSH_KEY_PATH=/root/.ssh/id_rsa",
-        "-e", "KNOWN_HOSTS_PATH=/root/.ssh/known_hosts",
-        "-v", "/path/to/your/ssh/private_key:/root/.ssh/id_rsa:ro",
-        "-v", "/path/to/your/ssh/known_hosts:/root/.ssh/known_hosts:ro",
+        "-e", "SSH_KEY_PATH=/run/keys/ssh-key.pem",
+        "-e", "KNOWN_HOSTS_PATH=/run/keys/known_hosts",
+        "-v", "/path/to/your/ssh/private_key:/run/keys/ssh-key.pem:ro",
+        "-v", "/path/to/your/ssh/known_hosts:/run/keys/known_hosts:ro",
         "armlimited/arm-mcp"
       ]
     }
@@ -163,10 +163,10 @@ args = [
   "--rm",
   "-i",
   "-v", "/path/to/your/workspace:/workspace",
-  "-e", "SSH_KEY_PATH=/root/.ssh/id_rsa",
-  "-e", "KNOWN_HOSTS_PATH=/root/.ssh/known_hosts",
-  "-v", "/path/to/your/ssh/private_key:/root/.ssh/id_rsa:ro",
-  "-v", "/path/to/your/ssh/known_hosts:/root/.ssh/known_hosts:ro",
+  "-e", "SSH_KEY_PATH=/run/keys/ssh-key.pem",
+  "-e", "KNOWN_HOSTS_PATH=/run/keys/known_hosts",
+  "-v", "/path/to/your/ssh/private_key:/run/keys/ssh-key.pem:ro",
+  "-v", "/path/to/your/ssh/known_hosts:/run/keys/known_hosts:ro",
   "armlimited/arm-mcp"
 ]
 ```

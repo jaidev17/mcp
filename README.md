@@ -1,6 +1,12 @@
 # Arm MCP Server
 
-An [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server providing AI assistants with tools and knowledge for Arm architecture development, migration, and optimization.
+An [MCP](https://modelcontextprotocol.io/) server providing AI assistants with tools and knowledge for Arm architecture development, migration, and optimization.
+
+## Using the Arm MCP Server
+
+If your goal is to migrate an application from x86 to Arm as quickly as possible, start here:
+
+[Automate x86-to-Arm application migration using Arm MCP Server](https://learn.arm.com/learning-paths/servers-and-cloud-computing/arm-mcp-server/)
 
 ## Features
 

@@ -126,10 +126,30 @@ def test_mcp_stdio_transport_responds(platform):
             DockerContainer(image)
             .with_volume_mapping(str(repo_root), "/workspace")
             .with_volume_mapping(str(temp_keys_path), "/run/keys", mode="ro")
-            .with_env("SSH_KEY_PATH", "/run/keys/ssh-key.pem")
-            .with_env("KNOWN_HOSTS_PATH", "/run/keys/known_hosts")
+            .with_env("SSH_KEY_PATH", "/tmp/ssh-key.pem")
+            .with_env("KNOWN_HOSTS_PATH", "/tmp/known_hosts")
             .with_kwargs(stdin_open=True, tty=False)
         ) as container:
+            prep_paths_cmd = (
+                "cp /run/keys/ssh-key.pem /tmp/ssh-key.pem && "
+                "cp /run/keys/known_hosts /tmp/known_hosts && "
+                "chown 0:0 /tmp/ssh-key.pem /tmp/known_hosts && "
+                "chmod 600 /tmp/ssh-key.pem && "
+                "chmod 644 /tmp/known_hosts"
+            )
+            prep_result = container.get_wrapped_container().exec_run(
+                ["/bin/sh", "-lc", prep_paths_cmd]
+            )
+            prep_output = (
+                prep_result.output.decode("utf-8", errors="replace")
+                if isinstance(prep_result.output, (bytes, bytearray))
+                else str(prep_result.output)
+            )
+            assert prep_result.exit_code == 0, (
+                f"Failed to prepare SSH files in container. Exit code: {prep_result.exit_code}. "
+                f"Output: {prep_output}"
+            )
+
             wait_for_logs(container, "Starting MCP server", timeout=60)
             socket_wrapper = container.get_wrapped_container().attach_socket(
                 params={"stdin": 1, "stdout": 1, "stderr": 1, "stream": 1}

@@ -97,7 +97,8 @@ def test_mcp_stdio_transport_responds(platform):
     print("\n***Repo Root: ", repo_root)
     dummy_ssh_material_ssh = "/workspace/utils/apx.pem"
     dummy_ssh_material_kh = "/workspace/utils/known_hosts"
-    print("\n***Dummy SSH Path In Container: ", dummy_ssh_material)
+    print("\n***Dummy SSH Path In Container: ", dummy_ssh_material_ssh)
+    print("\n***Dummy Known Hosts Path In Container: ", dummy_ssh_material_kh)
 
     with (
         DockerContainer(image)

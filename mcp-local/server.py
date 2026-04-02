@@ -323,6 +323,7 @@ def apx_recipe_run(cmd:str, remote_ip_addr:str, remote_usr:str, recipe:str="code
             "raw_output": target_add_res.get("raw_output", ""),
             "debug_trace": target_add_res.get("debug_trace", []),
         }
+    prepare_debug_trace = target_add_res.get("debug_trace", [])
     
     run_res = run_workload(cmd, target_add_res["target_id"], recipe, apx_dir)
     if "error" in run_res:
@@ -336,9 +337,17 @@ def apx_recipe_run(cmd:str, remote_ip_addr:str, remote_usr:str, recipe:str="code
                 "is supported for your PMU permissions."
             ),
             "details": run_res.get("details", ""),
+            "debug_trace": {
+                "prepare_target": prepare_debug_trace,
+                "run_workload": run_res.get("debug_trace", []),
+            },
         }
     
     results = get_results(run_res["run_id"], recipe, apx_dir)
+    results["debug_trace"] = {
+        "prepare_target": prepare_debug_trace,
+        "run_workload": run_res.get("debug_trace", []),
+    }
     
     return results
 

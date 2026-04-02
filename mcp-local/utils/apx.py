@@ -419,24 +419,43 @@ def run_workload(cmd:str, target: str, recipe:str, apx_dir:str) -> dict:
         - 'Help my analyze my code's performance'.
         - 'Find the CPU hotspots in my application'.
         Returns the run ID of the workload execution."""
-    
+
+    debug_trace: List[Dict[str, Any]] = []
+
+    def _record_debug(command: List[str], status: int, output: Optional[str]) -> None:
+        debug_trace.append(
+            {
+                "command": command,
+                "status": status,
+                "output": _trim_output(output or ""),
+            }
+        )
+
     # Check if the recipe is ready to run on the target
     ready_command = ["./apx", "recipe", "ready", recipe, "--target", target]
     ready_status, ready_output = run_command(ready_command, cwd=apx_dir)
+    _record_debug(ready_command, ready_status, ready_output)
 
     ready_output_text = (ready_output or "").lower()
     has_deploy_tools_hint = (
         "--deploy-tools" in ready_output_text
         and "to deploy this tool on the target" in ready_output_text
     )
+    has_missing_agent_hint = (
+        "recipe is not ready to be run on your target machine" in ready_output_text
+        and "agent server" in ready_output_text
+        and "run `target prepare`" in ready_output_text
+    )
+    is_expected_predeploy_state = has_deploy_tools_hint or has_missing_agent_hint
     
     # If readiness failed for reasons other than missing deployed tools, return early.
     # Missing tool deployment is expected because recipe run uses --deploy-tools.
-    if (ready_status != 0 or (ready_output and ready_output.strip())) and not has_deploy_tools_hint:
+    if (ready_status != 0 or (ready_output and ready_output.strip())) and not is_expected_predeploy_state:
         return {
             "error": "The recipe is not ready to run on the target machine.",
             "details": ready_output if ready_output else "Recipe readiness check failed.",
-            "suggestion": "You may need to run 'target prepare' or use '--deploy-tools' flag."
+            "suggestion": "You may need to run 'target prepare' or use '--deploy-tools' flag.",
+            "debug_trace": debug_trace,
         }
     
     command = [
@@ -448,14 +467,19 @@ def run_workload(cmd:str, target: str, recipe:str, apx_dir:str) -> dict:
         "--deploy-tools", "--param", "collect_java_stacks=true"
     ]
     status, output = run_command(command, cwd=apx_dir)
+    _record_debug(command, status, output)
     output_text = output or ""
     run_id = extract_run_id(output_text) if status == 0 else ""
     if not run_id or "Error" in output_text:
         return {
             "error": output_text if output_text else "Failed to run workload.",
-            "details": output_text
+            "details": output_text,
+            "debug_trace": debug_trace,
         }
-    return {"run_id": run_id}
+    return {
+        "run_id": run_id,
+        "debug_trace": debug_trace,
+    }
 
 def get_results(run_id: dict, recipe: str, apx_dir: str, default_table: str = "drilldown") -> Dict[str, Any]:
     """Get results from the target machine after running a workload. 

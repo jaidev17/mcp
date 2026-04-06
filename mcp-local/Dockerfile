@@ -38,9 +38,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential libelf-dev \
     ca-certificates file tar xz-utils jq libmagic1 && \
     rm -rf /var/lib/apt/lists/*
-RUN set -euxo pipefail; \
+RUN bash -o pipefail -c 'set -eux; \
     curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors \
-      https://raw.githubusercontent.com/JoeStech/arm-linux-migration-tools/main/scripts/install.sh | bash
+      https://raw.githubusercontent.com/JoeStech/arm-linux-migration-tools/main/scripts/install.sh | bash'
 # Temp until migrate-ease is updated
 RUN curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors \
     https://raw.githubusercontent.com/JoeStech/migrate-ease/main/js/advisor/main.py \

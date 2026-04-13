@@ -131,9 +131,6 @@ def test_mcp_stdio_transport_responds(platform):
         os.chmod(pem_path, 0o600)
         os.chmod(known_hosts_path, 0o644)
 
-        print("\n***Generated Dummy SSH Key: ", pem_path)
-        print("\n***Generated Dummy known_hosts: ", known_hosts_path)
-
         with (
             DockerContainer(image)
             .with_volume_mapping(str(repo_root), "/workspace")

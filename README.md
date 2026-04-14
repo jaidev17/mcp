@@ -123,7 +123,6 @@ Add to `~/.kiro/settings/mcp.json`:
         "-v", "/path/to/your/ssh/known_hosts:/run/keys/known_hosts:ro",
         "-e", "SSH_KEY_PATH=/run/keys/ssh-key.pem",
         "-e", "KNOWN_HOSTS_PATH=/run/keys/known_hosts",
-        "--name", "arm-mcp",
         "armlimited/arm-mcp"
       ],
       "timeout": 60000

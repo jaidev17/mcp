@@ -298,6 +298,7 @@ def apx_recipe_run(cmd:str, remote_ip_addr:str, remote_usr:str, recipe:str="code
         },
     )
     apx_dir = os.environ.get("APX_HOME", "/opt/apx")
+    include_debug_trace = os.getenv("APX_DEBUG_TRACE", "").strip().lower() in {"1", "true", "yes", "on"}
     ssh_mount_env = resolve_apx_ssh_mount_env()
     key_path = ssh_mount_env["key_path"]
     known_hosts_path = ssh_mount_env["known_hosts_path"]
@@ -319,7 +320,7 @@ def apx_recipe_run(cmd:str, remote_ip_addr:str, remote_usr:str, recipe:str="code
 
     target_add_res = prepare_target(remote_ip_addr, remote_usr, key_path, apx_dir)
     if "error" in target_add_res:
-        return {
+        error_response = {
             "status": "error",
             "recipe": recipe,
             "stage": "target_prepare",
@@ -331,10 +332,14 @@ def apx_recipe_run(cmd:str, remote_ip_addr:str, remote_usr:str, recipe:str="code
             "details": target_add_res.get("details", ""),
             "raw_output": target_add_res.get("raw_output", ""),
         }
+        if include_debug_trace:
+            error_response["debug_trace"] = target_add_res.get("debug_trace", [])
+        return error_response
+    prepare_debug_trace = target_add_res.get("debug_trace", [])
     
     run_res = run_workload(cmd, target_add_res["target_id"], recipe, apx_dir)
     if "error" in run_res:
-        return {
+        error_response = {
             "status": "error",
             "recipe": recipe,
             "stage": "workload_run",
@@ -345,8 +350,19 @@ def apx_recipe_run(cmd:str, remote_ip_addr:str, remote_usr:str, recipe:str="code
             ),
             "details": run_res.get("details", ""),
         }
+        if include_debug_trace:
+            error_response["debug_trace"] = {
+                "prepare_target": prepare_debug_trace,
+                "run_workload": run_res.get("debug_trace", []),
+            }
+        return error_response
     
     results = get_results(run_res["run_id"], recipe, apx_dir)
+    if include_debug_trace:
+        results["debug_trace"] = {
+            "prepare_target": prepare_debug_trace,
+            "run_workload": run_res.get("debug_trace", []),
+        }
     
     return results
 

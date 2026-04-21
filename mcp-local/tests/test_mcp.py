@@ -228,6 +228,28 @@ def test_mcp_stdio_transport_responds(platform):
             assert apx_structured.get("recipe") == "code_hotspots", "Test Failed: MCP apx_recipe_run tool failed: recipe mismatch. Expected: code_hotspots, Received: {}".format(apx_structured.get("recipe"))
             assert apx_structured.get("status") in {"success"}, "Test Failed: MCP apx_recipe_run tool failed: unexpected status. Received: {}".format(apx_structured.get("status"))
             print("\n***Test Passed: MCP apx_recipe_run tool call completed")
+
+            #Check APX Code Hotspots Tool Test - CpuBurner Java Workload
+            apx_java_request = json.loads(json.dumps(constants.CHECK_APX_CPU_HOTSPOTS_JAVA_REQUEST))
+            apx_java_args = apx_java_request["params"]["arguments"]
+            apx_java_args["remote_ip_addr"] = os.getenv("APX_TEST_REMOTE_IP", apx_java_args["remote_ip_addr"])
+            apx_java_args["remote_usr"] = os.getenv("APX_TEST_REMOTE_USER", apx_java_args["remote_usr"])
+            apx_java_args["cmd"] = os.getenv("APX_TEST_JAVA_CMD", apx_java_args["cmd"])
+
+            raw_socket.sendall(_encode_mcp_message(apx_java_request))
+            check_apx_java_response = _read_response(9, timeout=120)
+            print(
+                "\n***APX CPU Hotspots (Java) Raw Response: ",
+                json.dumps(check_apx_java_response, indent=2),
+            )
+            apx_java_structured = check_apx_java_response.get("result", {}).get("structuredContent", {})
+            print(
+                "\n***APX CPU Hotspots (Java) Structured Content: ",
+                json.dumps(apx_java_structured, indent=2),
+            )
+            assert apx_java_structured.get("recipe") == "code_hotspots", "Test Failed: MCP apx_recipe_run (Java) tool failed: recipe mismatch. Expected: code_hotspots, Received: {}".format(apx_java_structured.get("recipe"))
+            assert apx_java_structured.get("status") in {"success"}, "Test Failed: MCP apx_recipe_run (Java) tool failed: unexpected status. Received: {}".format(apx_java_structured.get("status"))
+            print("\n***Test Passed: MCP apx_recipe_run (Java CpuBurner) tool call completed")
         
 if __name__ == "__main__":
     pytest.main([__file__])

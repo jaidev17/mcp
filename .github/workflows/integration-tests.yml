@@ -92,6 +92,8 @@ jobs:
 
           sudo cp mcp-local/tests/CpuBurnerOriginal.java "/home/${APX_SSH_USER}/CpuBurnerOriginal.java"
           sudo chown "${APX_SSH_USER}:${APX_SSH_USER}" "/home/${APX_SSH_USER}/CpuBurnerOriginal.java"
+          sudo cp mcp-local/tests/CpuBurnerOriginal.java /tmp/CpuBurnerOriginal.java
+          sudo chmod 644 /tmp/CpuBurnerOriginal.java
 
           {
             echo "APX_TEST_SSH_KEY_PATH=${KEY_PATH}"

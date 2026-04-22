@@ -253,7 +253,7 @@ CHECK_APX_CPU_HOTSPOTS_JAVA_REQUEST = {
                 "arguments": {
                     "cmd": (
                         "D=$(mktemp -d); "
-                        "cp ~/CpuBurnerOriginal.java $D/CpuBurner.java; "
+                        "cp $HOME/CpuBurnerOriginal.java $D/CpuBurner.java; "
                         "cd $D && javac CpuBurner.java && java -XX:+PreserveFramePointer -cp . CpuBurner 30; "
                         "rm -rf $D"
                     ),

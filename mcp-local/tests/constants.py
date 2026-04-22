@@ -252,9 +252,8 @@ CHECK_APX_CPU_HOTSPOTS_JAVA_REQUEST = {
                 "name": "apx_recipe_run",
                 "arguments": {
                     "cmd": (
-                        "which java || (sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends default-jdk-headless); "
                         "D=$(mktemp -d); "
-                        "echo cHVibGljIGNsYXNzIENwdUJ1cm5lciB7CiAgcHVibGljIHN0YXRpYyB2b2lkIG1haW4oU3RyaW5nW10gYSkgdGhyb3dzIEV4Y2VwdGlvbiB7CiAgICBsb25nIGU9U3lzdGVtLmN1cnJlbnRUaW1lTWlsbGlzKCkrTG9uZy5wYXJzZUxvbmcoYVswXSkqMTAwMEw7CiAgICBkb3VibGUgeD0wLjUscz0wOwogICAgd2hpbGUoU3lzdGVtLmN1cnJlbnRUaW1lTWlsbGlzKCk8ZSl7Zm9yKGludCBpPTA7aTwxMDAwMDtpKyspe3g9TWF0aC5zaW4oeCtpKSpNYXRoLmNvcyh4LWkpO3MrPXg7fX0KICAgIFN5c3RlbS5vdXQucHJpbnRsbigiZG9uZSBzPSIrcyk7CiAgfQp9Cg== | base64 -d > $D/CpuBurner.java; "
+                        "cp ~/CpuBurnerOriginal.java $D/CpuBurner.java; "
                         "cd $D && javac CpuBurner.java && java -XX:+PreserveFramePointer -cp . CpuBurner 30; "
                         "rm -rf $D"
                     ),

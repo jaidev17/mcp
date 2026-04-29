@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a documentation update plan from the local Arm MCP README."""
+"""Generate a documentation update plan from the provided change message."""
 
 from __future__ import annotations
 
@@ -17,19 +17,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_REPORTS_DIR = SCRIPT_DIR / "reports"
 
-SOURCE_README = REPO_ROOT / "README.md"
+ROOT_README = REPO_ROOT / "README.md"
 AGENT_INSTALL_GUIDE = REPO_ROOT / "agent-integrations" / "agent-install-instructions.md"
+LOCAL_UPDATE_TARGETS: tuple[Path, ...] = (
+    ROOT_README,
+    AGENT_INSTALL_GUIDE,
+)
 MCP_SERVER_JSON = REPO_ROOT / "mcp-local" / "server.json"
 OPENAI_MODEL = "gpt-5.5"
-
-
-@dataclass(frozen=True)
-class SourceConfig:
-    source_path: Path
-    docker_image: str
-    generic_json: str
-    generic_toml: str
-    performix_note: str
 
 
 @dataclass(frozen=True)
@@ -60,6 +55,7 @@ REPO_TARGETS: tuple[RepoPlanTarget, ...] = (
             "https://learn.arm.com/install-guides/codex-cli/",
             "https://learn.arm.com/install-guides/claude-code/",
             "https://learn.arm.com/install-guides/gemini/",
+            "https://learn.arm.com/install-guides/kiro-cli/",
         ),
         notes="This repo backs the Learn site pages and install guides.",
     ),
@@ -79,7 +75,16 @@ REPO_TARGETS: tuple[RepoPlanTarget, ...] = (
         urls=(
             "https://github.com/arm/arm-mcp-gemini",
         ),
-        notes="Search the repo for Arm MCP setup/config references and align them with the local README.",
+        notes="Search the repo for Arm MCP setup/config references and align them with the canonical change message.",
+    ),
+    RepoPlanTarget(
+        alias="docker-mcp-registry",
+        repo_url="https://github.com/docker/mcp-registry",
+        clone_url="https://github.com/docker/mcp-registry.git",
+        urls=(
+            "https://github.com/docker/mcp-registry/tree/main/servers/arm-mcp",
+        ),
+        notes="Update the Docker MCP Registry entry under servers/arm-mcp.",
     ),
 )
 
@@ -92,7 +97,7 @@ MANUAL_TARGETS: tuple[ManualTarget, ...] = (
     ),
     ManualTarget(
         name="Docker Hub / Docker MCP catalog",
-        url="https://hub.docker.com/mcp/server/arm-mcp/config",
+        url="https://hub.docker.com/repository/docker/armlimited/arm-mcp/general",
         notes="Manual Docker publishing/catalog surface.",
     ),
     ManualTarget(
@@ -159,66 +164,6 @@ def detect_base_url() -> Optional[str]:
     return None
 
 
-def validate_local_source_readme() -> Path:
-    if not SOURCE_README.exists():
-        raise FileNotFoundError(
-            f"Local canonical source README not found: {format_path(SOURCE_README)}"
-        )
-    return SOURCE_README
-
-
-def extract_source_config(readme_path: Path) -> SourceConfig:
-    import re
-
-    log(f"Extracting canonical MCP configuration from {format_path(readme_path)}")
-    content = readme_path.read_text(encoding="utf-8")
-
-    section_match = re.search(
-        r"### 2\. Configure Your MCP Client\s*(.*?)\n### 3\. Restart Your MCP Client",
-        content,
-        re.DOTALL,
-    )
-    if not section_match:
-        raise ValueError(f"Unable to find MCP client config section in {readme_path}")
-    section_text = section_match.group(1)
-
-    json_match = re.search(r"#### Claude Code.*?```json\n(.*?)\n```", section_text, re.DOTALL)
-    toml_match = re.search(
-        r"#### MCP Clients using TOML format \(e\.g\. Codex CLI\).*?```toml\n(.*?)\n```",
-        section_text,
-        re.DOTALL,
-    )
-    if not json_match or not toml_match:
-        raise ValueError("Unable to extract canonical JSON/TOML config from local README")
-
-    json_block = json_match.group(1)
-    json_config = json.loads(json_block)
-    args_list = json_config["mcpServers"]["arm-mcp"]["args"]
-    generic_json = json.dumps(
-        {
-            "command": json_config["mcpServers"]["arm-mcp"]["command"],
-            "args": args_list,
-        },
-        indent=2,
-    )
-
-    toml_lines = ["[mcp_servers.arm-mcp]", 'command = "docker"', "args = ["]
-    for item in args_list:
-        toml_lines.append(f'  "{item}",')
-    toml_lines.append("]")
-
-    docker_image = next((item for item in reversed(args_list) if "arm-mcp" in item), "armlimited/arm-mcp")
-    return SourceConfig(
-        source_path=readme_path,
-        docker_image=docker_image,
-        generic_json=generic_json,
-        generic_toml="\n".join(toml_lines),
-        performix_note=(
-            "The SSH-related volume mounts are optional and are only needed when enabling Arm Performix."
-        ),
-    )
-
-
 def build_report_path(explicit_path: Optional[Path]) -> Path:
     if explicit_path:
         explicit_path.parent.mkdir(parents=True, exist_ok=True)
@@ -230,7 +175,6 @@ def build_report_path(explicit_path: Optional[Path]) -> Path:
 
 def generate_codex_prompts(
     *,
-    source: SourceConfig,
     change_message: str,
     targets: tuple[RepoPlanTarget, ...],
 ) -> dict[str, str]:
@@ -239,9 +183,8 @@ def generate_codex_prompts(
     api_key = os.getenv("OPENAI_API_KEY")
     base_url = detect_base_url()
     if not api_key or not base_url:
-        raise RuntimeError(
-            "OPENAI_API_KEY and an OpenAI base URL env var are required to generate Codex prompt snippets."
-        )
+        log("Skipping optional Codex prompt generation because OpenAI API configuration is incomplete")
+        return {}
 
     log(f"Generating Codex prompt snippets with {OPENAI_MODEL}")
     payload = {
@@ -256,7 +199,8 @@ def generate_codex_prompts(
                             "You generate short, actionable prompts for Codex. "
                             "The prompts are for a user to paste into Codex after cloning a repo. "
                             "Do not mention opening PRs, titles, branches, or commit messages. "
-                            "Focus only on the doc changes to make so the repo matches the canonical Arm MCP configuration source. "
+                            "Treat only the supplied change_message as canonical. "
+                            "Focus only on the doc changes to make so the repo matches that message. "
                             "Return strict JSON with a top-level key prompts containing an array of objects with alias and prompt."
                         ),
                     }
@@ -270,10 +214,6 @@ def generate_codex_prompts(
                         "text": json.dumps(
                             {
                                 "change_message": change_message,
-                                "canonical_source_path": format_path(source.source_path),
-                                "canonical_json_config": source.generic_json,
-                                "canonical_toml_config": source.generic_toml,
-                                "performix_note": source.performix_note,
                                 "repo_targets": [
                                     {
                                         "alias": target.alias,
@@ -339,7 +279,6 @@ def generate_codex_prompts(
 def write_report(
     report_path: Path,
     *,
-    source: SourceConfig,
     change_message: str,
     prompts: dict[str, str],
 ) -> None:
@@ -350,28 +289,15 @@ def write_report(
     lines.append("")
     lines.append(f"Generated: {dt.datetime.now().isoformat(timespec='seconds')}")
     lines.append("")
-    lines.append("## Canonical Source")
+    lines.append("## Canonical Input")
     lines.append("")
-    lines.append(f"- Source file: `{format_path(source.source_path)}`")
+    lines.append("- Source: `-m/--message` argument")
     lines.append(f"- Change message: {change_message}")
-    lines.append(f"- Docker image: `{source.docker_image}`")
-    lines.append(f"- Note: {source.performix_note}")
-    lines.append("")
-    lines.append("### Generic JSON Config")
-    lines.append("")
-    lines.append("```json")
-    lines.append(source.generic_json)
-    lines.append("```")
-    lines.append("")
-    lines.append("### Generic TOML Config")
-    lines.append("")
-    lines.append("```toml")
-    lines.append(source.generic_toml)
-    lines.append("```")
     lines.append("")
     lines.append("## Local Files To Update")
     lines.append("")
-    lines.append(f"- `{format_path(AGENT_INSTALL_GUIDE)}`")
+    for path in LOCAL_UPDATE_TARGETS:
+        lines.append(f"- `{format_path(path)}`")
     lines.append("")
     lines.append("## Repos To Clone")
     lines.append("")
@@ -392,6 +318,9 @@ def write_report(
             lines.append("```text")
             lines.append(prompt)
             lines.append("```")
+        lines.append("")
+    if not prompts:
+        lines.append("No optional Codex prompts were generated.")
         lines.append("")
     lines.append("## Manual Follow-Up")
     lines.append("")
@@ -418,16 +347,17 @@ def main() -> int:
     args = parse_args()
     log(f"Change message: {args.message}")
 
-    source = extract_source_config(validate_local_source_readme())
     report_path = build_report_path(args.report)
-    prompts = generate_codex_prompts(
-        source=source,
-        change_message=args.message,
-        targets=REPO_TARGETS,
-    )
+    try:
+        prompts = generate_codex_prompts(
+            change_message=args.message,
+            targets=REPO_TARGETS,
+        )
+    except Exception as exc:
+        log(f"Skipping optional Codex prompt generation after error: {exc}")
+        prompts = {}
     write_report(
         report_path,
-        source=source,
         change_message=args.message,
         prompts=prompts,
     )

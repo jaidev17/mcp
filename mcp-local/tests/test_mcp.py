@@ -249,14 +249,6 @@ def test_mcp_stdio_transport_responds(platform):
             )
             assert apx_java_structured.get("recipe") == "code_hotspots", "Test Failed: MCP apx_recipe_run (Java) tool failed: recipe mismatch. Expected: code_hotspots, Received: {}".format(apx_java_structured.get("recipe"))
             assert apx_java_structured.get("status") in {"success"}, "Test Failed: MCP apx_recipe_run (Java) tool failed: unexpected status. Received: {}".format(apx_java_structured.get("status"))
-            apx_java_rows = apx_java_structured.get("rows", [])
-            if apx_java_rows:
-                print("\n***APX CPU Hotspots (Java) Top Functions:")
-                for idx, row in enumerate(apx_java_rows, start=1):
-                    name = row.get("FUNCTION_NAME", "<unknown>")
-                    samples = row.get("PERIODIC_SAMPLES_SELF", 0)
-                    percent = row.get("PERIODIC_SAMPLES_SELF_PERCENT", 0)
-                    print(f"  {idx:>2}. {name} | samples={samples} | percent={percent}")
             print("\n***Test Passed: MCP apx_recipe_run (Java CpuBurner) tool call completed")
         
 if __name__ == "__main__":

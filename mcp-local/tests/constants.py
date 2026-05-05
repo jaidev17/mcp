@@ -251,13 +251,7 @@ CHECK_APX_CPU_HOTSPOTS_JAVA_REQUEST = {
             "params": {
                 "name": "apx_recipe_run",
                 "arguments": {
-                    "cmd": (
-                        "which java || (sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends default-jdk-headless); "
-                        "D=$(mktemp -d); "
-                        "cp /workspace/mcp-local/tests/CpuBurnerOriginal.java $D/CpuBurner.java; "
-                        "cd $D && javac CpuBurner.java && java -XX:+PreserveFramePointer -cp . CpuBurner 30; "
-                        "rm -rf $D"
-                    ),
+                    "cmd": "java -XX:+PreserveFramePointer -cp /home/apxci/cpuburner CpuBurner 30",
                     "remote_ip_addr": "localhost",
                     "remote_usr": "base",
                     "recipe": "code_hotspots",

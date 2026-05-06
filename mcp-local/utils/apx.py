@@ -533,7 +533,9 @@ def resolve_apx_ssh_mount_env() -> Dict[str, Any]:
 def extract_run_id(output: str) -> str:
     if not output:
         return ""
-    candidates = [line.strip() for line in output.splitlines() if line.strip().startswith("{")]
+    raw = output.strip()
+    candidates = [raw] if raw else []
+    candidates.extend(line.strip() for line in output.splitlines() if line.strip().startswith("{"))
     for candidate in candidates:
         try:
             data = json.loads(candidate)

@@ -249,6 +249,17 @@ def test_mcp_stdio_transport_responds(platform):
                 "\n***APX CPU Hotspots (Java) Structured Content: ",
                 json.dumps(apx_java_structured, indent=2),
             )
+            java_rows = apx_java_structured.get("rows", [])
+            if java_rows:
+                workc_found = False
+                for row in java_rows:
+                    if not isinstance(row, dict):
+                        continue
+                    function_name = row.get("FUNCTION_NAME") or row.get("function_name") or ""
+                    if "CpuBurner::workC" in str(function_name):
+                        workc_found = True
+                        break
+                assert workc_found, "Test Failed: Expected CpuBurner::workC in APX Java hotspots output."
             assert apx_java_structured.get("recipe") == "code_hotspots", "Test Failed: MCP apx_recipe_run (Java) tool failed: recipe mismatch. Expected: code_hotspots, Received: {}".format(apx_java_structured.get("recipe"))
             assert apx_java_structured.get("status") in {"success"}, "Test Failed: MCP apx_recipe_run (Java) tool failed: unexpected status. Received: {}".format(apx_java_structured.get("status"))
             print("\n***Test Passed: MCP apx_recipe_run (Java CpuBurner) tool call completed")

@@ -109,7 +109,7 @@ jobs:
           sudo -u "${APX_SSH_USER}" javac "${CPUBURNER_DIR}/CpuBurner.java"
 
           {
-            echo "APX_TEST_JAVA_CMD=java -XX:+PreserveFramePointer -cp ${CPUBURNER_DIR} CpuBurner 30"
+            echo "APX_TEST_JAVA_CMD=timeout 60s java -XX:+PreserveFramePointer -cp ${CPUBURNER_DIR} CpuBurner 30"
           } >> "${GITHUB_ENV}"
 
       - name: Run integration tests

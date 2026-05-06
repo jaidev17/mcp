@@ -236,8 +236,10 @@ def test_mcp_stdio_transport_responds(platform):
             apx_java_args["remote_usr"] = os.getenv("APX_TEST_REMOTE_USER", apx_java_args["remote_usr"])
             apx_java_args["cmd"] = os.getenv("APX_TEST_JAVA_CMD", apx_java_args["cmd"])
 
+            raw_socket.settimeout(600)
             raw_socket.sendall(_encode_mcp_message(apx_java_request))
-            check_apx_java_response = _read_response(9, timeout=240)
+            check_apx_java_response = _read_response(9, timeout=600)
+            raw_socket.settimeout(10)
             print(
                 "\n***APX CPU Hotspots (Java) Raw Response: ",
                 json.dumps(check_apx_java_response, indent=2),

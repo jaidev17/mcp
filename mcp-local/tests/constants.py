@@ -251,7 +251,7 @@ CHECK_APX_CPU_HOTSPOTS_JAVA_REQUEST = {
             "params": {
                 "name": "apx_recipe_run",
                 "arguments": {
-                    "cmd": "java -XX:+PreserveFramePointer -cp /home/apxci/cpuburner CpuBurner 1",
+                    "cmd": "java -XX:+PreserveFramePointer -cp /home/apxci/cpuburner CpuBurner 3",
                     "remote_ip_addr": "localhost",
                     "remote_usr": "base",
                     "recipe": "code_hotspots",

@@ -27,6 +27,8 @@ SEARCH_TOKEN_PATTERN = re.compile(r"[a-z0-9][a-z0-9_\-+.]*", re.IGNORECASE)
 RRF_K = 60
 LEXICAL_PREPASS_DEPTH = 400
 PINNED_LEXICAL_CANDIDATES = 20
+DEDUPLICATION_CANDIDATE_MULTIPLIER = 10
+MIN_DEDUPLICATION_CANDIDATES = 50
 SEARCH_STOPWORDS = {
     "a", "an", "and", "are", "be", "better", "can", "configured", "configuration", "for",
     "called", "how", "i", "improve", "in", "is", "it", "of", "on", "or", "out", "performance", "processor",
@@ -385,6 +387,10 @@ def _candidate_key(result: Dict[str, Any]) -> str:
         url = metadata.get("url") or metadata.get("resolved_url") or "<unknown url>"
         raise ValueError(f"Search metadata missing required chunk_uuid for {url}")
     return str(chunk_uuid)
+
+
+def deduplication_candidate_count(k: int) -> int:
+    return max(k, min(LEXICAL_PREPASS_DEPTH, max(k * DEDUPLICATION_CANDIDATE_MULTIPLIER, MIN_DEDUPLICATION_CANDIDATES)))
 
 
 def hybrid_search(

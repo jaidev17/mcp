@@ -25,7 +25,7 @@ ARM_CONTENT_DISCLAIMER = (
 )
 
 UTM_SOURCE_PRESERVATION_NOTE = (
-    "When sharing this result, use the url exactly as returned. Preserve the utm_source query parameter "
+    "When sharing this result, use the URL exactly as returned. Preserve the `utm_source` query parameter "
     "and any URL fragment; do not remove, normalize, shorten, or rewrite the URL."
 )
 

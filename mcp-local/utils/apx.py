@@ -97,6 +97,48 @@ def _trim_output(text: str, max_chars: int = 50_000) -> str:
     return text[-max_chars:]
 
 
+# Rough characters-per-token ratio used to estimate when a result is large enough
+# that an agent's default tool-output token limit may truncate it.
+APPROX_CHARS_PER_TOKEN = 4
+# Warn below the smallest common default tool-output token limit across agents
+# (Codex defaults to ~12k tokens, Claude Code to ~25k) so the advisory appears
+# before any supported agent truncates the result.
+TRUNCATION_ADVISORY_TOKEN_THRESHOLD = 10_000
+
+
+def build_truncation_advisory(
+    result: Any,
+    token_threshold: int = TRUNCATION_ADVISORY_TOKEN_THRESHOLD,
+) -> Optional[Dict[str, Any]]:
+    """Return guidance for the agent when a serialized tool result is large enough
+    that the agent's default tool-output token limit may truncate it.
+
+    Returns None when the result is small enough that truncation is unlikely.
+    """
+    try:
+        serialized = json.dumps(result, default=str)
+    except (TypeError, ValueError):
+        serialized = str(result)
+
+    char_count = len(serialized)
+    estimated_tokens = char_count // APPROX_CHARS_PER_TOKEN
+    if estimated_tokens < token_threshold:
+        return None
+
+    return {
+        "estimated_characters": char_count,
+        "estimated_tokens": estimated_tokens,
+        "message": (
+            f"This Performix result is large (~{estimated_tokens} tokens) and may be "
+            "truncated by your agent's tool-output limit. If the results appear cut "
+            "off or incomplete, increase the tool-output character/token limit in "
+            "your agent configuration and re-run. For reference, Codex's "
+            "tool_output_token_limit defaults to ~12k tokens and Claude Code's to "
+            "~25k tokens."
+        ),
+    }
+
+
 def _sanitize_apx_output(output: str) -> str:
     return ANSI_ESCAPE_RE.sub("", output or "")
 

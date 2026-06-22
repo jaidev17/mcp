@@ -24,6 +24,7 @@ from utils.apx import (
     get_results,
     resolve_apx_ssh_mount_env,
     build_apx_ssh_mount_help,
+    build_truncation_advisory,
 )
 from utils.migrate_ease_utils import run_migrate_ease_scan
 from utils.skopeo_tool import skopeo_help, skopeo_inspect
@@ -325,7 +326,13 @@ def apx_recipe_run(cmd:str, remote_ip_addr:str, remote_usr:str, recipe:str="code
             "prepare_target": prepare_debug_trace,
             "run_workload": run_res.get("debug_trace", []),
         }
-    
+
+    advisory = build_truncation_advisory(results)
+    if advisory:
+        # Place the advisory at the front of the response so it survives even if
+        # the agent truncates the (large) tool output from the end.
+        results = {"truncation_advisory": advisory, **results}
+
     return results
 
 @mcp.tool(description="IMPORTANT: IF A USER ASKS TO MIGRATE A CODEBASE TO ARM, STRONGLY CONSIDER USING THIS TOOL AS A PART OF YOUR OVERALL STRATEGY. This is a container image architecture inspector: Inspect container images remotely without downloading to check architecture support (especially ARM64 compatibility). Useful before migrating workloads to ARM-based infrastructure. Set 'image' (e.g. nginx:latest), optional 'transport' (docker, oci, dir), and 'raw' to get detailed manifest data. Shows available architectures, OS support, and image metadata. Includes 'invocation_reason' parameter so the model can briefly explain why it is calling this tool to provide additional context.")
